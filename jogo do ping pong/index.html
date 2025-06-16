@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ping Pong</title>
+  <style>
+    body {
+      margin: 0;
+      background: #111;
+      text-align: center;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    canvas {
+      display: block;
+      margin: 20px auto;
+      background-image: url('bluelock.png.jpg'); /* coloque seu fundo aqui */
+      background-size: cover;
+      cursor: none;
+    }
+
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+      background: #222;
+      color: white;
+      border: 1px solid #555;
+      border-radius: 5px;
+      transition: background 0.3s;
+    }
+
+    button:hover {
+      background: #444;
+    }
+
+    #placar {
+      font-size: 20px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Ping Pong</h1>
+<div id="placar">Jogador: 0 | CPU: 0</div>
+<button onclick="iniciarJogo('facil')">Fácil</button>
+<button onclick="iniciarJogo('medio')">Médio</button>
+<button onclick="iniciarJogo('dificil')">Difícil</button>
+
+<canvas id="gameCanvas" width="600" height="400"></canvas>
+
+<script>
+const canvas = document.getElementById("gameCanvas");
+const ctx = canvas.getContext("2d");
+
+let playerY = 150;
+let cpuY = 150;
+let playerScore = 0;
+let cpuScore = 0;
+let velocidade = 4;
+let dificuldade = 'medio';
+let cpuErro = 0;
+let jogoEmAndamento = false;
+
+let ball = {
+    x: 300,
+    y: 200,
+    dx: 4,
+    dy: 4,
+    radius: 10
+};
+
+let musicaFundo = new Audio("musica.mp3");
+musicaFundo.loop = true;
+musicaFundo.volume = 0.3;
+
+function iniciarJogo(nivel) {
+    if (jogoEmAndamento) return;
+    jogoEmAndamento = true;
+
+    dificuldade = nivel;
+    if (nivel === 'facil') velocidade = 3;
+    if (nivel === 'medio') velocidade = 5;
+    if (nivel === 'dificil') velocidade = 7;
+
+    playerScore = 0;
+    cpuScore = 0;
+    ball.x = 300;
+    ball.y = 200;
+    ball.dx = velocidade;
+    ball.dy = velocidade;
+
+    musicaFundo.play();
+
+    loop();
+}
+
+function loop() {
+    atualizar();
+    desenhar();
+    if (playerScore < 5 && cpuScore < 5) {
+        requestAnimationFrame(loop);
+    } else {
+        mostrarVencedor();
+    }
+}
+
+function atualizar() {
+    // Movimento da bola
+    ball.x += ball.dx;
+    ball.y += ball.dy;
+
+    // Rebater na parede superior/inferior
+    if (ball.y < 0 || ball.y > canvas.height) {
+        ball.dy *= -1;
+    }
+
+    // Rebater nas raquetes
+    if (ball.x < 20 && ball.y > playerY && ball.y < playerY + 100) {
+        let impacto = ball.y - (playerY + 50);
+        ball.dy = impacto * 0.3;
+        ball.dx *= -1;
+        tocarSom("bate.wav");
+    }
+
+    if (ball.x > 570 && ball.y > cpuY && ball.y < cpuY + 100) {
+        let impacto = ball.y - (cpuY + 50);
+        ball.dy = impacto * 0.3;
+        ball.dx *= -1;
+        tocarSom("bate.wav");
+    }
+
+    // Pontuação
+    if (ball.x < 0) {
+        cpuScore++;
+        tocarSom("ponto.wav");
+        resetarBola();
+    }
+
+    if (ball.x > canvas.width) {
+        playerScore++;
+        tocarSom("ponto.wav");
+        resetarBola();
+    }
+
+    // IA da CPU com erro ajustável
+    let erroMax = dificuldade === 'facil' ? 50 : dificuldade === 'medio' ? 20 : 5;
+    cpuErro = (Math.random() - 0.5) * erroMax;
+
+    if (cpuY + 50 < ball.y + cpuErro) cpuY += velocidade - 2;
+    if (cpuY + 50 > ball.y + cpuErro) cpuY -= velocidade - 2;
+
+    // Limites do jogador
+    if (playerY < 0) playerY = 0;
+    if (playerY > canvas.height - 100) playerY = canvas.height - 100;
+
+    // Atualizar placar
+    document.getElementById("placar").innerText = `Jogador: ${playerScore} | CPU: ${cpuScore}`;
+}
+
+function resetarBola() {
+    ball.x = 300;
+    ball.y = 200;
+    ball.dx *= -1;
+
+    // Aumenta dificuldade progressivamente (opcional)
+    ball.dx += ball.dx > 0 ? 0.2 : -0.2;
+    ball.dy += ball.dy > 0 ? 0.2 : -0.2;
+}
+
+function desenhar() {
+    // Efeito de rastro
+    ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Bola
+    ctx.beginPath();
+    ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+    ctx.fillStyle = "white";
+    ctx.fill();
+
+    // Raquetes
+    ctx.fillStyle = "white";
+    ctx.fillRect(10, playerY, 10, 100); // Jogador
+    ctx.fillRect(580, cpuY, 10, 100);   // CPU
+
+    // Barra de progresso
+    desenharPlacarProgresso();
+}
+
+function desenharPlacarProgresso() {
+    ctx.fillStyle = "white";
+    ctx.fillRect(200, 10, playerScore * 20, 8);
+    ctx.fillRect(400, 10, cpuScore * 20, 8);
+}
+
+function mostrarVencedor() {
+    jogoEmAndamento = false;
+    tocarSom("vitoria.wav");
+    musicaFundo.pause();
+    musicaFundo.currentTime = 0;
+
+    if (playerScore === 5) {
+        alert("🎉 Jogador 1 venceu!");
+    } else {
+        alert("🤖 A CPU venceu!");
+    }
+}
+
+// Sons
+function tocarSom(nome) {
+    let som = new Audio(nome);
+    som.play();
+}
+
+// Controle da raquete do jogador com mouse
+canvas.addEventListener("mousemove", function(e) {
+    const rect = canvas.getBoundingClientRect();
+    const mouseY = e.clientY - rect.top;
+    playerY = mouseY - 50;
+    if (playerY < 0) playerY = 0;
+    if (playerY > canvas.height - 100) playerY = canvas.height - 100;
+});
+</script>
+
+</body>
+</html>
